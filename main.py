@@ -108,6 +108,70 @@ not whitespace-only — inside the gate. The em dash is kept because
 it reads as a spoken pause ("Meow after the beep — I'll wake you...")
 and the line is still plain UTF-8 text.
 
+----------------------------------------------------------------------
+REVISION SCORECARD — candidates judged criterion by criterion
+----------------------------------------------------------------------
+
+The judge weighs the brief's criteria in order and stops at the
+first criterion where two entries differ, unless a later one differs
+by much more. So the decisive question is not "which line is best
+overall" but "at which criterion does the winner first pull ahead,
+and is that lead big enough to survive a later criterion going the
+other way". Scored S (strong) / G (good) / W (weak) per criterion:
+
+Criterion                          C1 (winner)  C2   C3   C4
+1. Cat voicemail + lands a laugh   S            S    G    S
+2. Joke is cat-specific            S            G    G    G
+3. Clear cat voice / character     S            W    W    W
+4. Punch arrives quickly, spoken   S            G    G    G
+5. Fresh, not a tired pun          S            W    G    G
+
+Reading the scorecard in the judge's order:
+  - Criterion 1: C1, C2 and C4 all clear it, so it does not decide
+    between the three front-runners; C3 is a step behind (its laugh
+    is a list, not a greeting). C1's edge here is that it lands TWO
+    laughs (beep twist, then 4am threat) where C2 and C4 land one.
+  - Criterion 2: C1 is the first to pull clearly ahead. C1 packs
+    two cat-specific behaviours (box nap, 4am food demand) into one
+    line; C2, C3 and C4 each carry one (glass/mug knock-over) and
+    C3's third behaviour is padding, not a second joke.
+  - Criterion 3: C1's lead widens. C1 is the only line where the
+    cat speaks as a character with an agenda ("I'll wake you") —
+    C2 and C4 both borrow a human voicemail cliche ("Leave a
+    message", "I can't come to the phone"), which is an owner doing
+    a cat voice. By the judge's rule the contest is already decided
+    at criterion 3, before criteria 4 and 5 are reached; C1 also
+    wins those, so no later criterion can overturn it.
+  - Criterion 4: C1's three spoken beats arrive in order — frame,
+    twist, threat — and the final beat is the punch, so the caller
+    hears the joke complete inside the few seconds of the greeting.
+    C4 fails this shape: it ends on the beep joke, so the laugh
+    peaks and stops with no closing payoff.
+  - Criterion 5: "Meow after the beep" retools the standard
+    voicemail instruction ("leave a message after the beep") instead
+    of recycling a cat pun; C1 then adds a second fresh idea (the
+    4am wake-up threat) rather than stopping at the one twist.
+
+What each writing pass changed, and why:
+  - PASS 1 (draft): four candidates written from four different
+    cat behaviours (box nap, glass knock-over, keyboard/box/water
+    pile-up, mug knock-over). The pass established the shortlist and
+    cut C3 on the 120-char gate before any judging — a line that
+    cannot pass the gate never reaches the judge, so length is
+    checked first, not last.
+  - PASS 2 (revision): the winner was tightened, not rewritten.
+    Two trims were tried and rejected with reasons (see above:
+    "your parcel" stays because the cat addresses ITS human;
+    "asleep" stays because the flat, lazy word suits the voice),
+    and the name was settled as "Biscuit" because a food-named cat
+    sets up the closing food demand — the name does joke work.
+    The revision pass changed zero words of the final line's joke
+    structure; it confirmed each word earned its place.
+  - This revision (deepening): no word of the line changed. The
+    scorecard above and the validate_line() helper were added so the
+    reasoning that picked the line and the gate the line must pass
+    are both explicit in the file, not only in the author's head.
+
 WINNING LINE (119 chars):
     You've reached Biscuit. I'm asleep in the box your parcel came
     in. Meow after the beep — I'll wake you at 4am for food.
@@ -123,21 +187,53 @@ ENTRY = (
 MAX_CHARS = 120
 
 
+def validate_line(line: str) -> str:
+    """Check one candidate line against the sealed gate, then return it.
+
+    The gate (competition.yaml, "The gate"): entry.txt must be UTF-8
+    text of 1 to 120 characters, not only white space. A single line
+    is also required by the brief — a voicemail greeting is one
+    spoken line, and a newline would break the judge's read.
+
+    Raises ValueError with a specific reason instead of a bare assert,
+    so a bad line fails loudly at build time with its cause attached
+    rather than silently writing an invalid entry.
+    """
+    if not isinstance(line, str):
+        raise ValueError(f"entry must be str, got {type(line).__name__}")
+    if not 1 <= len(line) <= MAX_CHARS:
+        raise ValueError(
+            f"entry is {len(line)} chars, gate allows 1-{MAX_CHARS}"
+        )
+    if not line.strip():
+        raise ValueError("entry must not be only whitespace")
+    if "\n" in line or "\r" in line:
+        raise ValueError("entry must be a single line")
+    # UTF-8 round-trip: the file is written as UTF-8, so the line
+    # must survive an encode/decode unchanged (the em dash is the
+    # only non-ASCII character here, and it round-trips cleanly).
+    if line.encode("utf-8").decode("utf-8") != line:
+        raise ValueError("entry is not valid UTF-8 text")
+    return line
+
+
 def main() -> None:
-    # Gate check, same rules as the sealed scorer: 1-120 chars, UTF-8,
-    # not only whitespace, single line.
-    assert 1 <= len(ENTRY) <= MAX_CHARS, f"entry is {len(ENTRY)} chars"
-    assert ENTRY.strip(), "entry must not be only whitespace"
-    assert "\n" not in ENTRY, "entry must be a single line"
+    # Revision note (2026-11-26): the entry line itself is unchanged
+    # from the first revision — only the reasoning around it deepened
+    # (decision-record scorecard in the docstring) and the gate check
+    # moved from inline asserts into validate_line() above, so the
+    # rules the sealed scorer applies are enforced in one named place
+    # and any future line change gets the same checks for free.
+    line = validate_line(ENTRY)
 
     out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "entry.txt")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(ENTRY)
+        f.write(line)
 
     # The file is the entry; this print is only a local confirmation.
-    print(f"wrote {len(ENTRY)} chars to {path}")
+    print(f"wrote {len(line)} chars to {path}")
 
 
 if __name__ == "__main__":
